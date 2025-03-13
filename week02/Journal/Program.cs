@@ -1,7 +1,11 @@
+// Changed the SaveToFile and LoadFromFile methods to use JSON.
+// Made the Entry class properties settable and added an empty constructor to allow JSON deserialization,
+// such as invalid JSON format or file not found errors. 
 // Program.cs
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json; // Added for JSON serialization
 
 namespace JournalApp
 {
@@ -17,8 +21,8 @@ namespace JournalApp
                 Console.WriteLine("\nJournal Application");
                 Console.WriteLine("1. Write a new entry");
                 Console.WriteLine("2. Display the journal");
-                Console.WriteLine("3. Save the journal to a file");
-                Console.WriteLine("4. Load the journal from a file");
+                Console.WriteLine("3. Save the journal to a file (JSON)"); // Modified to use JSON
+                Console.WriteLine("4. Load the journal from a file (JSON)"); // Modified to use JSON
                 Console.WriteLine("5. Exit");
                 Console.Write("Enter your choice: ");
 
@@ -33,14 +37,14 @@ namespace JournalApp
                         journal.DisplayJournal();
                         break;
                     case "3":
-                        Console.Write("Enter filename to save: ");
+                        Console.Write("Enter filename to save (JSON): ");
                         string saveFilename = Console.ReadLine();
-                        journal.SaveToFile(saveFilename);
+                        journal.SaveToJsonFile(saveFilename); // Modified to use JSON
                         break;
                     case "4":
-                        Console.Write("Enter filename to load: ");
+                        Console.Write("Enter filename to load (JSON): ");
                         string loadFilename = Console.ReadLine();
-                        journal.LoadFromFile(loadFilename);
+                        journal.LoadFromJsonFile(loadFilename); // Modified to use JSON
                         break;
                     case "5":
                         running = false;
@@ -102,43 +106,40 @@ namespace JournalApp
             }
         }
 
-        public void SaveToFile(string filename)
+        // Modified to save to JSON
+        public void SaveToJsonFile(string filename)
         {
             try
             {
-                using (StreamWriter writer = new StreamWriter(filename))
-                {
-                    foreach (Entry entry in entries)
-                    {
-                        writer.WriteLine($"{entry.Date}~|~{entry.Prompt}~|~{entry.Response}");
-                    }
-                }
-                Console.WriteLine("Journal saved.");
+                string jsonString = JsonSerializer.Serialize(entries);
+                File.WriteAllText(filename, jsonString);
+                Console.WriteLine("Journal saved to JSON.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error saving journal: {ex.Message}");
+                Console.WriteLine($"Error saving journal to JSON: {ex.Message}");
             }
         }
 
-        public void LoadFromFile(string filename)
+        // Modified to load from JSON
+        public void LoadFromJsonFile(string filename)
         {
             try
             {
-                entries.Clear();
-                using (StreamReader reader = new StreamReader(filename))
+                if (File.Exists(filename))
                 {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        string[] parts = line.Split(new string[] { "~|~" }, StringSplitOptions.None);
-                        if (parts.Length == 3)
-                        {
-                            entries.Add(new Entry(parts[1], parts[2], parts[0]));
-                        }
-                    }
+                    string jsonString = File.ReadAllText(filename);
+                    entries = JsonSerializer.Deserialize<List<Entry>>(jsonString);
+                    Console.WriteLine("Journal loaded from JSON.");
+                } else
+                {
+                    Console.WriteLine("File not found.");
                 }
-                Console.WriteLine("Journal loaded.");
+
+            }
+            catch (JsonException)
+            {
+                Console.WriteLine("Invalid JSON format in file.");
             }
             catch (FileNotFoundException)
             {
@@ -146,7 +147,7 @@ namespace JournalApp
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading journal: {ex.Message}");
+                Console.WriteLine($"Error loading journal from JSON: {ex.Message}");
             }
         }
     }
@@ -154,9 +155,11 @@ namespace JournalApp
     // Entry.cs
     public class Entry
     {
-        public string Prompt { get; }
-        public string Response { get; }
-        public string Date { get; }
+        public string Prompt { get; set; } // Make properties settable for JSON serialization
+        public string Response { get; set; }
+        public string Date { get; set; }
+
+        public Entry() { } // Required for JSON deserialization
 
         public Entry(string prompt, string response, string date)
         {
